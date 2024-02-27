@@ -118,21 +118,6 @@ def load_data():
 data, exposure, exposure0, loss, prod = load_data()
 
 #%%
-# # cntC = df.loc['B',:,'A',5,:,.5,'Indonesia',:,:,:].reset_index().drop(['Continent', 'Region', 'Subregion'],axis=1)#.set_index('month')
-# cntC = df.copy().reset_index().drop(['Continent', 'Region', 'Subregion'],axis=1)#.set_index('month')
-# cntC = cntC[cntC['month']>0]
-# # Replace crop name
-# cntC['crop'].replace(cropDict, inplace=True)
-
-
-# # Pivot for plotting
-# cntCe = cntC.pivot(index='month', columns='crop', values='exposedProd')
-# cntCi = cntC.pivot(index='month', columns='crop', values='impactedProd')
-# # Reorder in descending production
-# cntCe = cntCe.loc[:, cntCe.sum().sort_values(ascending=False).index.to_list()]
-# cntCi = cntCi.loc[:, cntCe.sum().sort_values(ascending=False).index.to_list()]
-
-
 
 ## Set list values
 country = data.reset_index()['Country'].unique()
@@ -143,22 +128,47 @@ tech = ['All','Irrigated','Rainfed','Rainfed, high inputs','Rainfed, low inputs'
 
 ## Sidebar
 with st.sidebar:
-    st.markdown("#### Pick a dataset:")
-    opt_dataset = st.selectbox("Dataset", dataset, )
-    with st.expander('More info', expanded=False):
-        st.write("""
-                Some more information about *datasets*
-                """)
+    dataset_help= """
+        #### Eruptive history dataset
+        Losses are estimated using two different volcano/eruption datasets:
+        - **GVP** refers to the [Global Volcanism Program](https://volcano.si.edu) from the Smithsonian Institution and considers Holocene volcanoes.
+        - **SE** refers to the NCEI/WDS [Significant Eruption]((https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.ngdc.mgg.hazards:G10147)) dataset.  A significant eruption is classified as one that meets at least one of the following criteria: caused fatalities, caused moderate damage (approximately $1 million or more), Volcanic Explosivity Index (VEI) of 6 or greater, generated a tsunami, or was associated with a significant earthquake. 
         
-    opt_country = st.selectbox("Country", country, 75)
-    opt_VEI = st.selectbox("VEI", VEI, index=2)
-    opt_tech = st.selectbox("Technology", tech, index=0)
-    opt_thickness = st.selectbox("Thickness (cm), thickness", thickness, index=1)
-    # but_update = st.button('Update', on_click=updatePlots)
+        In turn, each dataset considers two approaches to treat the eruption catalogue:
+        - **all VEI** considers the isopachs associated with eruptions of VEI 2, 3, 4 and 5 at all volcanoes identified in each database.
+        - **VEI occurred** considers the isopachs associated with eruptions that have occurred in the eruptive record of each volcano. 
+    """
     
-    # Format crop 
-    prod_crop = pd.DataFrame(prod.loc[opt_country, opt_tech]).reset_index()
-    prod_crop.columns = ['crop', 'value']
+    country_help="""
+        #### Country 
+        Select the country on which to aggregate crop exposure and impact. Note that the approach considers impacts from tephra fallout originating from neighbouring volcanoes (e.g., impacts in Argentina are dominantly caused by volcanoes located in Chile).
+    """
+
+    VEI_help="""
+        #### Volcanic Explosivity Index (VEI)
+        The **VEI** is a measure of the explosivity of an eruption based on the [volume of tephra fallout](https://en.wikipedia.org/wiki/Volcanic_explosivity_index) introduced by [Newhall and Self (1982)](https://agupubs.onlinelibrary.wiley.com/doi/10.1029/JC087iC02p01231). Bounds of VEI 2-5 are:
+        - **VEI 2**: $10^6$-$10^7\ m^3$  
+        - **VEI 3**: $10^7$-$10^8\ m^3$  
+        - **VEI 4**: $10^8$-$10^9\ m^3$  
+        - **VEI 5**: $10^9$-$10^{10}\ m^3$ 
+    """
+    
+    tech_help="""
+        #### Technology
+        **Technology** is defined within the [MAPSPAM](https://mapspam.info) dataset and splits crop production by farming practices. 
+    """
+    
+    thick_help="""
+        #### Thickness 
+        Minimum deposit thickness considered to cause an impact on crop production.
+    """
+    
+    opt_dataset = st.selectbox("Dataset", dataset, help=dataset_help )
+    opt_country = st.selectbox("Country", country, 75, help=country_help)
+    opt_VEI = st.selectbox("VEI", VEI, index=2, help=VEI_help)
+    opt_tech = st.selectbox("Technology", tech, index=0, help=tech_help)
+    opt_thickness = st.selectbox("Deposit thickness (cm)", thickness, index=1, help=thick_help)
+    # but_update = st.button('Update', on_click=updatePlots)
 
 
 ## Title
@@ -343,8 +353,10 @@ def butterfly_chart(
 
 
 st.header('Impact')
-st.subheader('Production exposure')
-
+st.subheader('Modelled losses vs production exposure')
+"""
+    This tornado chart compares modelled losses vs production exposure for each month.
+"""
 # Subset and get columns
 loss_plot = loss.loc[opt_dataset, opt_country, opt_tech, opt_VEI, :, opt_thickness][crop]
 exposure_plot = exposure.loc[opt_dataset, opt_country, opt_tech, opt_VEI, :, opt_thickness][crop]
@@ -358,3 +370,8 @@ with matplotlib.rc_context(style_kwargs):
         middle_label_offset=0.015,
     )
     st.pyplot(fig)
+
+with st.expander('Monthly exposure  (tons)', expanded=False):
+        st.dataframe(exposure_plot*1e6, use_container_width=True)
+with st.expander('Monthly modelled losses  (tons)', expanded=False):
+        st.dataframe(loss_plot*1e6, use_container_width=True)
